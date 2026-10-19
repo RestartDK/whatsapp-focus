@@ -1,0 +1,34 @@
+html[data-wa-focus] div:has(> #side),
+html[data-wa-focus] div.two > header[data-testid="chatlist-header"] {
+  display: none !important;
+}
+
+/* drawer-middle keeps its pane position with the list hidden, leaving a stray
+   1px divider where the list used to end. */
+html[data-wa-focus] [data-testid="drawer-middle"] {
+  border-left-color: transparent !important;
+}
+
+/* drawers are anchored after the hidden rail, leaving a dead strip at the left. */
+html[data-wa-focus] [data-testid="drawer-fullscreen"] {
+  left: 0 !important;
+}
+
+html[data-wa-focus] [data-testid="drawer-left"] {
+  margin-left: 0 !important;
+}
+
+#wa-focus-toast {
+  position: fixed;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #202c33;
+  color: #e9edef;
+  font: 500 13px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 45%);
+  pointer-events: none;
+  z-index: 2147483647;
+}
