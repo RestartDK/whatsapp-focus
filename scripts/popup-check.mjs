@@ -2,7 +2,9 @@
 // checks that the switch follows and drives the WhatsApp Web tab.
 // usage: node scripts/popup-check.mjs <port> [extension-path]
 import { createHash } from 'node:crypto';
-import { connect } from './lib.mjs';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { connect, evidenceDir } from './lib.mjs';
 
 const port = process.argv[2] ?? '9334';
 const extensionPath = process.argv[3] ?? new URL('..', import.meta.url).pathname.replace(/\/$/, '');
@@ -62,9 +64,8 @@ await new Promise((r) => setTimeout(r, 1500));
 const restored = { popup: await popupEval(`document.getElementById('toggle').checked`), wa: (await wa.state()).focus };
 expect('second flip restores the whatsapp tab', restored.wa === before.focus, `popup=${restored.popup} wa=${restored.wa}`);
 
-await popupSend('Page.captureScreenshot', { format: 'png' }).then(async (res) => {
-  const { writeFileSync } = await import('node:fs');
-  writeFileSync(new URL('../evidence/popup-01-open.png', import.meta.url).pathname, Buffer.from(res.data, 'base64'));
+await popupSend('Page.captureScreenshot', { format: 'png' }).then((res) => {
+  writeFileSync(join(evidenceDir, 'popup-01-open.png'), Buffer.from(res.data, 'base64'));
 });
 
 await fetch(`http://127.0.0.1:${port}/json/close/${created.id}`);

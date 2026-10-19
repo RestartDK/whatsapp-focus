@@ -1,6 +1,10 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+export const evidenceDir = process.env.EVIDENCE_DIR ?? join(tmpdir(), 'wa-focus-evidence');
 
 export const connect = async (port) => {
   const base = `http://127.0.0.1:${port}`;
@@ -52,12 +56,12 @@ export const connect = async (port) => {
     throw new Error(`timeout waiting for ${expression}`);
   };
 
-  const evidenceDir = new URL('../evidence/', import.meta.url).pathname;
   mkdirSync(evidenceDir, { recursive: true });
   const shot = async (name) => {
     const res = await send('Page.captureScreenshot', { format: 'png' });
-    writeFileSync(`${evidenceDir}${name}.png`, Buffer.from(res.data, 'base64'));
-    return `evidence/${name}.png`;
+    const path = join(evidenceDir, `${name}.png`);
+    writeFileSync(path, Buffer.from(res.data, 'base64'));
+    return path;
   };
 
   const pressHotkey = async () => {
