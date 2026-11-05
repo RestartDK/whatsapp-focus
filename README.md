@@ -11,6 +11,7 @@ Chrome extension for WhatsApp Web. Hides the chat list and icon rail so the open
 ## Use
 
 - Click the toolbar icon and turn on **Focus mode**, or press `⌘⇧H` (`Ctrl+Shift+H` on Windows/Linux) while WhatsApp Web is focused.
+- Focus mode also hides the unread count in the tab title. New counts stay hidden until you turn focus mode off, which restores the latest title.
 - Same shortcut turns it off and brings the list back.
 - The setting lives in `chrome.storage.local`, so it survives reloads and applies to every WhatsApp Web tab.
 
@@ -18,13 +19,15 @@ If no chat is selected, focus mode leaves WhatsApp's intro panel full width. Pic
 
 ## How it works
 
-`focus.css` hides the two flex children that hold the sidebar and the icon rail when `data-wa-focus` is set on `<html>`. WhatsApp's own flex layout then stretches the conversation pane. No DOM nodes are moved or observed, so WhatsApp re-renders do not fight it. Three follow-up rules keep the leftovers honest: the pane divider border, and the two drawer anchors that reserved space for the hidden rail.
+`focus.css` hides the two flex children that hold the sidebar and the icon rail when `data-wa-focus` is set on `<html>`. WhatsApp's own flex layout then stretches the conversation pane. Sidebar nodes are not moved or observed, so WhatsApp re-renders do not fight it. Three follow-up rules keep the leftovers honest: the pane divider border, and the two drawer anchors that reserved space for the hidden rail.
+
+`content.js` observes title changes in `<head>` and removes a leading numeric count such as `(12)` while focus mode is on. It keeps the latest page-authored title for restoration and ignores its own title writes. The existing shortcut, popup, and saved setting all control this behavior.
 
 The selectors read WhatsApp's own hooks (`#side`, `div.two`, `data-testid="chatlist-header"`, `drawer-left`, `drawer-middle`, `drawer-fullscreen`). A rename there makes the list reappear; nothing else breaks.
 
 ## Verification
 
-Each script drives a Chromium instance serving a logged-in WhatsApp Web session, so they need a profile copy and a running browser:
+The layout scripts drive a Chromium instance with a logged-in WhatsApp Web session, so they need a profile copy and a running browser:
 
 ```
 Helium --headless=new --remote-debugging-port=9334 \
@@ -35,6 +38,8 @@ node scripts/verify.mjs 9334      # acceptance: baseline, hotkey, persistence, r
 node scripts/break-ui.mjs 9334    # empty state, open drawer, narrow, 200% zoom
 node scripts/popup-check.mjs 9334 # popup switch drives the WhatsApp tab
 ```
+
+`node scripts/title-check.mjs <port>` checks the tab title with controlled unread counts on WhatsApp Web. It does not require login. It covers the shortcut, later title updates, cleared counts, title-node replacement, pending updates at toggle time, and saved focus mode after reload.
 
 `scripts/narrow.mjs <port>` covers a real narrow window; launch the browser with `--window-size=700,820` for it.
 
