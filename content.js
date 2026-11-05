@@ -9,8 +9,40 @@ let enabled = false;
 let valueLocked = false;
 let toastSeq = 0;
 let toastTimer;
+let pageTitle = document.title;
 
-const apply = (value) => document.documentElement.toggleAttribute(FOCUS_ATTR, value);
+const hasTitleMutation = (mutations) =>
+  mutations.some(({ target, addedNodes, removedNodes }) =>
+    target.nodeName === 'TITLE' ||
+    target.parentNode?.nodeName === 'TITLE' ||
+    [...addedNodes, ...removedNodes].some((node) =>
+      node.nodeName === 'TITLE' || node.querySelector?.('title'),
+    ),
+  );
+
+const syncTitle = () => {
+  if (hasTitleMutation(titleObserver.takeRecords())) pageTitle = document.title;
+  titleObserver.disconnect();
+  const title = enabled ? pageTitle.replace(/^\(\d+\)\s*/, '') : pageTitle;
+  if (document.title !== title) document.title = title;
+  titleObserver.observe(document.head ?? document.documentElement, {
+    childList: true,
+    characterData: true,
+    subtree: true,
+  });
+};
+
+const titleObserver = new MutationObserver((mutations) => {
+  if (hasTitleMutation(mutations)) pageTitle = document.title;
+  syncTitle();
+});
+
+syncTitle();
+
+const apply = (value) => {
+  document.documentElement.toggleAttribute(FOCUS_ATTR, value);
+  syncTitle();
+};
 
 const lockValue = (value) => {
   valueLocked = true;
