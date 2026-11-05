@@ -2,6 +2,8 @@ const FOCUS_KEY = 'focusEnabled';
 const FOCUS_ATTR = 'data-wa-focus';
 const TOAST_ID = 'wa-focus-toast';
 const TOAST_MS = 1800;
+const FAVICON_SELECTOR = 'link[rel~="icon" i]';
+const FOCUS_FAVICON = chrome.runtime.getURL('icons/focus.png');
 
 const shortcutLabel = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘⇧H' : 'Ctrl+Shift+H';
 
@@ -10,6 +12,37 @@ let valueLocked = false;
 let toastSeq = 0;
 let toastTimer;
 let pageTitle = document.title;
+const pageIcons = new Map();
+const fallbackIcon = document.createElement('link');
+fallbackIcon.rel = 'icon';
+
+const syncFavicons = () => {
+  if (!document.head) return;
+  const icons = new Set(document.head.querySelectorAll(FAVICON_SELECTOR));
+  icons.delete(fallbackIcon);
+  for (const [icon, attributes] of pageIcons) {
+    if (enabled && icons.has(icon)) continue;
+    for (const [name, value] of Object.entries(attributes)) {
+      if (value === null) icon.removeAttribute(name);
+      else icon.setAttribute(name, value);
+    }
+    pageIcons.delete(icon);
+  }
+  if (!enabled || icons.size > 0) fallbackIcon.remove();
+  if (!enabled) return;
+  if (icons.size === 0) {
+    if (fallbackIcon.rel !== 'icon') fallbackIcon.rel = 'icon';
+    if (!fallbackIcon.isConnected) document.head.append(fallbackIcon);
+    icons.add(fallbackIcon);
+  }
+  for (const icon of icons) {
+    if (icon !== fallbackIcon && !pageIcons.has(icon)) {
+      pageIcons.set(icon, { href: icon.getAttribute('href'), type: icon.getAttribute('type') });
+    }
+    if (icon.getAttribute('href') !== FOCUS_FAVICON) icon.href = FOCUS_FAVICON;
+    if (icon.type !== 'image/png') icon.type = 'image/png';
+  }
+};
 
 const hasTitleMutation = (mutations) =>
   mutations.some(({ target, addedNodes, removedNodes }) =>
@@ -20,28 +53,35 @@ const hasTitleMutation = (mutations) =>
     ),
   );
 
-const syncTitle = () => {
-  if (hasTitleMutation(titleObserver.takeRecords())) pageTitle = document.title;
-  titleObserver.disconnect();
+const syncHead = (mutations = []) => {
+  mutations = [...mutations, ...headObserver.takeRecords()];
+  if (hasTitleMutation(mutations)) pageTitle = document.title;
+  for (const { type, target, attributeName } of mutations) {
+    const attributes = pageIcons.get(target);
+    if (type === 'attributes' && attributes && (attributeName === 'href' || attributeName === 'type')) {
+      attributes[attributeName] = target.getAttribute(attributeName);
+    }
+  }
+  headObserver.disconnect();
   const title = enabled ? pageTitle.replace(/^\(\d+\)\s*/, '') : pageTitle;
   if (document.title !== title) document.title = title;
-  titleObserver.observe(document.head ?? document.documentElement, {
+  syncFavicons();
+  headObserver.observe(document.head ?? document.documentElement, {
     childList: true,
     characterData: true,
     subtree: true,
+    attributes: true,
+    attributeFilter: ['href', 'rel', 'type'],
   });
 };
 
-const titleObserver = new MutationObserver((mutations) => {
-  if (hasTitleMutation(mutations)) pageTitle = document.title;
-  syncTitle();
-});
+const headObserver = new MutationObserver(syncHead);
 
-syncTitle();
+syncHead();
 
 const apply = (value) => {
   document.documentElement.toggleAttribute(FOCUS_ATTR, value);
-  syncTitle();
+  syncHead();
 };
 
 const lockValue = (value) => {
